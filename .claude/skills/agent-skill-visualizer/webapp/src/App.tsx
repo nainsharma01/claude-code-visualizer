@@ -262,8 +262,10 @@ function App() {
   // Handle mouse move
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (dragInfo.current) {
-      const dx = (e.clientX - dragInfo.current.startMouse.x) / viewTransform.scale;
-      const dy = (e.clientY - dragInfo.current.startMouse.y) / viewTransform.scale;
+      // Prevent division by zero or very small numbers
+      const safeScale = Math.max(viewTransform.scale, 0.01);
+      const dx = (e.clientX - dragInfo.current.startMouse.x) / safeScale;
+      const dy = (e.clientY - dragInfo.current.startMouse.y) / safeScale;
 
       setNodePositions(prev => ({
         ...prev,
@@ -273,18 +275,31 @@ function App() {
         },
       }));
     } else if (panState.current) {
-      setViewTransform(prev => ({
-        ...prev,
-        x: e.clientX - panState.current!.startX,
-        y: e.clientY - panState.current!.startY,
-      }));
+      setViewTransform(prev => {
+        const newTransform = {
+          ...prev,
+          x: e.clientX - panState.current!.startX,
+          y: e.clientY - panState.current!.startY,
+        };
+        return sanitizeTransform(newTransform);
+      });
     }
-  }, [viewTransform.scale]);
+  }, [viewTransform.scale, sanitizeTransform]);
 
   // Handle mouse up
   const handleMouseUp = useCallback(() => {
     dragInfo.current = null;
     panState.current = null;
+  }, []);
+
+  // Sanitize transform values to prevent NaN/Infinity
+  const sanitizeTransform = useCallback((transform: { scale: number; x: number; y: number }) => {
+    const isValid = (n: number) => Number.isFinite(n) && !Number.isNaN(n);
+    return {
+      scale: isValid(transform.scale) ? Math.min(Math.max(transform.scale, 0.3), 2) : 1,
+      x: isValid(transform.x) ? Math.min(Math.max(transform.x, -10000), 10000) : 0,
+      y: isValid(transform.y) ? Math.min(Math.max(transform.y, -10000), 10000) : 0,
+    };
   }, []);
 
   // Handle zoom
@@ -303,12 +318,17 @@ function App() {
 
     const scaleDiff = newScale - viewTransform.scale;
 
-    setViewTransform(prev => ({
-      scale: newScale,
-      x: prev.x - (mouseX - prev.x) * (scaleDiff / prev.scale),
-      y: prev.y - (mouseY - prev.y) * (scaleDiff / prev.scale),
-    }));
-  }, [viewTransform]);
+    setViewTransform(prev => {
+      // Prevent division by zero or very small numbers
+      const safeScale = Math.max(prev.scale, 0.01);
+      const newTransform = {
+        scale: newScale,
+        x: prev.x - (mouseX - prev.x) * (scaleDiff / safeScale),
+        y: prev.y - (mouseY - prev.y) * (scaleDiff / safeScale),
+      };
+      return sanitizeTransform(newTransform);
+    });
+  }, [viewTransform, sanitizeTransform]);
 
   // Filter and highlight logic
   const { visibleNodes, highlightedEdges } = useMemo(() => {
