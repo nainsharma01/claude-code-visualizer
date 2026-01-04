@@ -6,8 +6,8 @@
 [![npm downloads](https://img.shields.io/npm/dm/viewcc.svg)](https://www.npmjs.com/package/viewcc)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-📊 **View Claude Code** is a powerful tool that visualizes your entire Claude Code project structure in an interactive graph.
-Perfect for understanding agent-skill relationships, navigating complex projects, and executing agents/skills directly from the UI.
+📊 **View Claude Code** is a powerful tool that visualizes your Claude Code agents and skills in an interactive graph.
+Perfect for understanding agent-skill relationships, navigating complex configurations, and executing agents/skills directly from the UI.
 
 ## ✨ Features
 
