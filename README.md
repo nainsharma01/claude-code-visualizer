@@ -15,7 +15,7 @@ Perfect for understanding agent-skill relationships, navigating complex configur
 - 🔍 **Smart Relationship Mapping** - Automatically detects and visualizes agent-skill connections
 - ⚡ **One-Command Setup** - Just run `npx viewcc` - no installation needed
 - 🎯 **Execute from UI** - Run agents and skills directly from the graph interface
-- 🔄 **Real-time Monitoring** - Live connection status and activity tracking
+- 🔄 **Real-time Monitoring** *(Coming Soon)* - Live connection status and activity tracking
 - 🎭 **Visual Clarity** - Color-coded nodes and Bezier curves for easy understanding
 - 🚀 **Zero Configuration** - Works out of the box with any Claude Code project
 - 📱 **Responsive Design** - Smooth zoom, pan, and navigation controls
