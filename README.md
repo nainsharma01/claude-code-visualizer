@@ -1,26 +1,26 @@
 # View Claude Code
 
-> Interactive visualization tool for Claude Code agents and skills
+> Interactive visualization tool for Claude Code agents, skills, and commands
 
 [![npm version](https://img.shields.io/npm/v/viewcc.svg)](https://www.npmjs.com/package/viewcc)
 [![npm downloads](https://img.shields.io/npm/dm/viewcc.svg)](https://www.npmjs.com/package/viewcc)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-📊 **View Claude Code** is a powerful tool that visualizes your Claude Code agents and skills in an interactive graph.
+**View Claude Code** is a powerful tool that visualizes your Claude Code agents, skills, and commands in an interactive graph.
 Perfect for understanding agent-skill relationships, navigating complex configurations, and executing agents/skills directly from the UI.
 
-## ✨ Features
+## Features
 
-- 🎨 **Interactive Graph Visualization** - Beautiful hierarchical layout showing all agents and skills
-- 🔍 **Smart Relationship Mapping** - Automatically detects and visualizes agent-skill connections
-- ⚡ **One-Command Setup** - Just run `npx viewcc` - no installation needed
-- 🎯 **Execute from UI** - Run agents and skills directly from the graph interface
-- 🔄 **Real-time Monitoring** *(Coming Soon)* - Live connection status and activity tracking
-- 🎭 **Visual Clarity** - Color-coded nodes and Bezier curves for easy understanding
-- 🚀 **Zero Configuration** - Works out of the box with any Claude Code project
-- 📱 **Responsive Design** - Smooth zoom, pan, and navigation controls
+- **Interactive Graph Visualization** - Beautiful hierarchical layout showing all agents, skills, and commands
+- **Global + Local Support** - Scans both project `.claude/` and global `~/.claude/` directories
+- **Smart Relationship Mapping** - Automatically detects and visualizes agent-skill connections
+- **One-Command Setup** - Just run `npx viewcc` - no installation needed
+- **Execute from UI** - Run agents and skills directly from the graph interface
+- **Visual Clarity** - Color-coded nodes with distinct styling for local vs global scope
+- **Zero Configuration** - Works out of the box with any Claude Code project
+- **Responsive Design** - Smooth zoom, pan, and navigation controls
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -31,7 +31,7 @@ Perfect for understanding agent-skill relationships, navigating complex configur
 
 **Project Requirements:**
 - A **Claude Code project** with a `.claude/` directory
-  - If you don't have one, run `claude init` in your project folder
+  - If you don't have one, run `claude` in your project folder
   - Or use this tool to explore any existing Claude Code project
 
 **Optional:**
@@ -50,15 +50,16 @@ npx viewcc
 ```
 
 That's it! The visualizer will:
-- ✅ Scan your project
-- ✅ Start the server
-- ✅ Open your browser automatically
+- Scan your project's `.claude/` directory
+- Scan your global `~/.claude/` directory
+- Start the server
+- Open your browser automatically
 
 ### Usage
 
 **Basic usage:**
 ```bash
-# Visualize current project
+# Visualize current project (local + global)
 npx viewcc
 
 # Visualize specific project
@@ -94,6 +95,52 @@ npx viewcc --verbose
 npx viewcc --port 5000 --no-open --verbose
 ```
 
+## How It Works
+
+### Node Types
+
+| Type | Color | Description |
+|------|-------|-------------|
+| **Agent** | Blue | AI assistants with specific tasks |
+| **Skill** | Green | Reusable capabilities with scripts/webapp |
+| **Command** | Amber | Slash commands (`/command-name`) |
+
+### Scope
+
+| Scope | Border Style | Location |
+|-------|--------------|----------|
+| **Local** | Solid | `.claude/` in project |
+| **Global** | Dashed (orange) | `~/.claude/` in home |
+
+Use the **Global** toggle button to show/hide global nodes.
+
+### Edge Types
+
+| Type | Style | Meaning |
+|------|-------|---------|
+| **uses** | Solid indigo | Agent uses a skill/command |
+| **calls** | Dashed purple | Agent calls another agent |
+
+### Hierarchy
+
+- **Level 0**: Top-level agents with child agents
+- **Level 1+**: Child agents
+- **Rightmost**: Skills and commands
+
+## Controls
+
+| Action | Effect |
+|--------|--------|
+| **Click node** | View details in sidebar |
+| **Click "Execute"** | Run agent/skill via Claude Code |
+| **Scroll** | Zoom in/out |
+| **Drag background** | Pan around |
+| **Drag node** | Move node position |
+| **Click background** | Deselect node |
+| **Global button** | Toggle global nodes visibility |
+
+## Development
+
 ### Local Development
 
 If you want to modify or contribute:
@@ -117,59 +164,36 @@ cd ~/other-project
 viewcc
 ```
 
-## 📖 How It Works
-
-### Graph Structure
-
-- **Blue nodes**: Agents (AI assistants with specific tasks)
-- **Green nodes**: Skills (reusable capabilities)
-- **Purple lines**: Agent calls another agent
-- **Indigo lines**: Agent uses a skill
-
-### Hierarchy
-
-- **Level 0**: Top-level agents with child agents
-- **Level 1**: Child agents
-- **Level 2**: Leaf agents (skill-only)
-- **Level 3**: Skills
-
-## 🎮 Controls
-
-- **Click node**: View details in sidebar
-- **Click "Execute" button**: Run agent/skill via Claude Code
-- **Scroll**: Zoom in/out
-- **Drag**: Pan around
-- **Click background**: Deselect node
-
-## 🛠️ Development
-
 ### Project Structure
 
 ```
-.claude/
-├── agents/
-│   └── visualizer-launcher.md    # Agent to start servers
-└── skills/
-    └── agent-skill-visualizer/
-        ├── SKILL.md              # Skill definition
-        ├── scripts/
-        │   ├── scan_agents_skills.py    # Graph data generator
-        │   └── stream_server.py         # SSE server
-        └── webapp/
-            ├── src/              # React/TypeScript app
-            └── public/data/      # Generated graph data
+claude-code-visualizer/
+├── src/                    # TypeScript source
+│   ├── cli.ts              # CLI entry point
+│   ├── scanner.ts          # Project scanner
+│   └── server.ts           # Express server
+├── lib/                    # Compiled JavaScript
+├── dist/                   # Built webapp
+└── .claude/
+    └── skills/
+        └── agent-skill-visualizer/
+            └── webapp/     # React/TypeScript app
 ```
 
 ### Building from Source
 
 ```bash
+# Build everything (TypeScript + webapp)
+npm run build
+
+# Webapp only
 cd .claude/skills/agent-skill-visualizer/webapp
 npm install
 npm run dev    # Development mode
 npm run build  # Production build
 ```
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
@@ -181,21 +205,20 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built for [Claude Code](https://github.com/anthropics/claude-code) by Anthropic
 - Inspired by the need to visualize complex agent-skill relationships
-- Uses D3.js for graph rendering
 
-## 📧 Contact
+## Contact
 
 - GitHub: [@kubony](https://github.com/kubony)
 - Issues: [GitHub Issues](https://github.com/kubony/claude-code-visualizer/issues)
 
 ---
 
-**Made with ❤️ for the Claude Code community**
+**Made with Claude Code**
