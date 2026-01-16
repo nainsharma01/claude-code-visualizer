@@ -50,5 +50,3 @@ Thumbs.db
 .env.test.local
 .env.production.local
 
-# Personal documentation
-CLAUDE.md
