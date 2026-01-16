@@ -5,10 +5,11 @@ import { glob } from 'glob';
 // Type definitions
 interface GraphNode {
   id: string;
-  type: 'agent' | 'skill';
+  type: 'agent' | 'skill' | 'command';
   name: string;
   description: string;
   filePath: string;
+  scope: 'local' | 'global';
   [key: string]: any;
 }
 
@@ -23,11 +24,14 @@ interface AgentNode extends GraphNode {
 
 interface SkillNode extends GraphNode {
   type: 'skill';
-  subtype?: 'command';
   triggers: string[];
   hasScripts: boolean;
   hasWebapp: boolean;
-  argumentHint?: string;
+}
+
+interface CommandNode extends GraphNode {
+  type: 'command';
+  argumentHint: string;
 }
 
 interface GraphEdge {
@@ -44,6 +48,14 @@ interface GraphMetadata {
   skillCount: number;
   commandCount: number;
   edgeCount: number;
+  globalAgentCount: number;
+  globalSkillCount: number;
+  globalCommandCount: number;
+}
+
+interface ScanOptions {
+  includeLocal?: boolean;
+  includeGlobal?: boolean;
 }
 
 interface GraphData {
@@ -138,9 +150,24 @@ function parseListField(value: any): string[] {
 }
 
 /**
+ * Resolve symlinks and get real path
+ */
+async function resolveSymlink(filePath: string): Promise<string> {
+  try {
+    const stats = await fs.lstat(filePath);
+    if (stats.isSymbolicLink()) {
+      return await fs.realpath(filePath);
+    }
+    return filePath;
+  } catch {
+    return filePath;
+  }
+}
+
+/**
  * Scan agents directory for agent definitions
  */
-async function scanAgents(claudePath: string): Promise<AgentNode[]> {
+async function scanAgents(claudePath: string, scope: 'local' | 'global', basePath: string): Promise<AgentNode[]> {
   const agents: AgentNode[] = [];
   const agentsDir = path.join(claudePath, 'agents');
 
@@ -154,8 +181,10 @@ async function scanAgents(claudePath: string): Promise<AgentNode[]> {
 
   for (const file of agentFiles) {
     try {
-      const filePath = path.join(agentsDir, file);
-      const content = await fs.readFile(filePath, 'utf-8');
+      let filePath = path.join(agentsDir, file);
+      // Resolve symlinks
+      const realPath = await resolveSymlink(filePath);
+      const content = await fs.readFile(realPath, 'utf-8');
       const metadata = parseYamlFrontmatter(content);
       const body = extractBodyContent(content);
 
@@ -164,7 +193,9 @@ async function scanAgents(claudePath: string): Promise<AgentNode[]> {
       const skills = parseListField(metadata.skills);
 
       const basename = path.parse(file).name;
-      const relativePath = path.relative(path.dirname(claudePath), filePath);
+      const relativePath = scope === 'global'
+        ? `~/.claude/agents/${file}`
+        : path.relative(basePath, filePath);
 
       const agent: AgentNode = {
         id: `agent:${basename}`,
@@ -176,6 +207,7 @@ async function scanAgents(claudePath: string): Promise<AgentNode[]> {
         subagents,
         skills,
         filePath: relativePath,
+        scope,
         systemPrompt: body.length > 500 ? body.slice(0, 500) + '...' : body
       };
 
@@ -191,7 +223,7 @@ async function scanAgents(claudePath: string): Promise<AgentNode[]> {
 /**
  * Scan skills directory for skill definitions
  */
-async function scanSkills(claudePath: string): Promise<SkillNode[]> {
+async function scanSkills(claudePath: string, scope: 'local' | 'global', basePath: string): Promise<SkillNode[]> {
   const skills: SkillNode[] = [];
   const skillsDir = path.join(claudePath, 'skills');
 
@@ -204,21 +236,43 @@ async function scanSkills(claudePath: string): Promise<SkillNode[]> {
   const entries = await fs.readdir(skillsDir, { withFileTypes: true });
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) {
+    // Handle both directories and symlinks
+    const entryPath = path.join(skillsDir, entry.name);
+    let isDir = entry.isDirectory();
+
+    if (entry.isSymbolicLink()) {
+      try {
+        const realPath = await fs.realpath(entryPath);
+        const realStats = await fs.stat(realPath);
+        isDir = realStats.isDirectory();
+      } catch {
+        continue;
+      }
+    }
+
+    if (!isDir) {
       continue;
     }
 
-    const skillDir = path.join(skillsDir, entry.name);
+    const skillDir = entryPath;
     const skillFile = path.join(skillDir, 'SKILL.md');
 
+    // Resolve symlinks for skill directory
+    let realSkillDir = skillDir;
     try {
-      await fs.access(skillFile);
+      realSkillDir = await resolveSymlink(skillDir);
+    } catch {}
+
+    const realSkillFile = path.join(realSkillDir, 'SKILL.md');
+
+    try {
+      await fs.access(realSkillFile);
     } catch {
       continue;
     }
 
     try {
-      const content = await fs.readFile(skillFile, 'utf-8');
+      const content = await fs.readFile(realSkillFile, 'utf-8');
       const metadata = parseYamlFrontmatter(content);
       const body = extractBodyContent(content);
 
@@ -235,11 +289,14 @@ async function scanSkills(claudePath: string): Promise<SkillNode[]> {
         );
       }
 
-      const relativePath = path.relative(path.dirname(claudePath), skillFile);
-      const hasScripts = await fs.access(path.join(skillDir, 'scripts'))
+      const relativePath = scope === 'global'
+        ? `~/.claude/skills/${entry.name}/SKILL.md`
+        : path.relative(basePath, skillFile);
+
+      const hasScripts = await fs.access(path.join(realSkillDir, 'scripts'))
         .then(() => true)
         .catch(() => false);
-      const hasWebapp = await fs.access(path.join(skillDir, 'webapp'))
+      const hasWebapp = await fs.access(path.join(realSkillDir, 'webapp'))
         .then(() => true)
         .catch(() => false);
 
@@ -250,13 +307,14 @@ async function scanSkills(claudePath: string): Promise<SkillNode[]> {
         description: metadata.description || '',
         triggers,
         filePath: relativePath,
+        scope,
         hasScripts,
         hasWebapp
       };
 
       skills.push(skill);
     } catch (error: any) {
-      console.warn(`Warning: Failed to parse ${skillFile}: ${error.message}`);
+      console.warn(`Warning: Failed to parse ${realSkillFile}: ${error.message}`);
     }
   }
 
@@ -266,8 +324,8 @@ async function scanSkills(claudePath: string): Promise<SkillNode[]> {
 /**
  * Scan commands directory for slash command definitions
  */
-async function scanCommands(claudePath: string): Promise<SkillNode[]> {
-  const commands: SkillNode[] = [];
+async function scanCommands(claudePath: string, scope: 'local' | 'global', basePath: string): Promise<CommandNode[]> {
+  const commands: CommandNode[] = [];
   const commandsDir = path.join(claudePath, 'commands');
 
   try {
@@ -280,24 +338,25 @@ async function scanCommands(claudePath: string): Promise<SkillNode[]> {
 
   for (const file of commandFiles) {
     try {
-      const filePath = path.join(commandsDir, file);
-      const content = await fs.readFile(filePath, 'utf-8');
+      let filePath = path.join(commandsDir, file);
+      // Resolve symlinks
+      const realPath = await resolveSymlink(filePath);
+      const content = await fs.readFile(realPath, 'utf-8');
       const metadata = parseYamlFrontmatter(content);
 
       const basename = path.parse(file).name;
-      const relativePath = path.relative(path.dirname(claudePath), filePath);
+      const relativePath = scope === 'global'
+        ? `~/.claude/commands/${file}`
+        : path.relative(basePath, filePath);
 
-      const command: SkillNode = {
-        id: `skill:${basename}`,
-        type: 'skill',
-        subtype: 'command',
-        name: basename,
+      const command: CommandNode = {
+        id: `command:${basename}`,
+        type: 'command',
+        name: `/${basename}`,
         description: metadata.description || '',
         argumentHint: metadata['argument-hint'] || '',
         filePath: relativePath,
-        hasScripts: false,
-        hasWebapp: false,
-        triggers: []
+        scope,
       };
 
       commands.push(command);
@@ -310,11 +369,12 @@ async function scanCommands(claudePath: string): Promise<SkillNode[]> {
 }
 
 /**
- * Find relationships between agents and skills
+ * Find relationships between agents, skills, and commands
  */
 async function findRelationships(
   agents: AgentNode[],
   skills: SkillNode[],
+  commands: CommandNode[],
   claudePath: string
 ): Promise<GraphEdge[]> {
   const edges: GraphEdge[] = [];
@@ -341,6 +401,12 @@ async function findRelationships(
     skillMap.set(skill.id.replace('skill:', '').toLowerCase(), skill.id);
   }
 
+  const commandMap = new Map<string, string>();
+  for (const command of commands) {
+    commandMap.set(command.name.toLowerCase(), command.id);
+    commandMap.set(command.id.replace('command:', '').toLowerCase(), command.id);
+  }
+
   // Process agent relationships from YAML metadata
   for (const agent of agents) {
     // Agent -> Subagent relationships
@@ -362,7 +428,7 @@ async function findRelationships(
     }
   }
 
-  // Check agent files for skill references (content-based)
+  // Check agent files for skill/command references (content-based)
   for (const agent of agents) {
     const agentFilePath = path.join(path.dirname(claudePath), agent.filePath);
     try {
@@ -376,6 +442,15 @@ async function findRelationships(
           addEdge(agent.id, skill.id, 'uses');
         }
       }
+
+      for (const command of commands) {
+        const commandName = command.name.toLowerCase();
+        const commandId = command.id.replace('command:', '');
+
+        if (content.includes(commandName) || content.includes(commandId)) {
+          addEdge(agent.id, command.id, 'uses');
+        }
+      }
     } catch {
       // Skip if file can't be read
     }
@@ -385,45 +460,107 @@ async function findRelationships(
 }
 
 /**
+ * Get global Claude directory path
+ */
+function getGlobalClaudePath(): string {
+  const home = process.env.HOME || process.env.USERPROFILE || '';
+  return path.join(home, '.claude');
+}
+
+/**
+ * Merge nodes, handling duplicates (local takes precedence)
+ */
+function mergeNodes<T extends GraphNode>(localNodes: T[], globalNodes: T[]): T[] {
+  const localIds = new Set(localNodes.map(n => n.id));
+  const uniqueGlobalNodes = globalNodes.filter(n => !localIds.has(n.id));
+  return [...localNodes, ...uniqueGlobalNodes];
+}
+
+/**
  * Scan a Claude Code project and generate graph data
  */
 export async function scanProject(
   projectPath: string,
-  outputPath: string
+  outputPath: string,
+  options: ScanOptions = {}
 ): Promise<GraphMetadata> {
-  const project = path.resolve(projectPath);
-  const claudePath = path.join(project, '.claude');
+  const { includeLocal = true, includeGlobal = true } = options;
 
-  // Verify .claude directory exists
+  const project = path.resolve(projectPath);
+  const localClaudePath = path.join(project, '.claude');
+  const globalClaudePath = getGlobalClaudePath();
+
+  // Verify at least one .claude directory exists
+  let hasLocal = false;
+  let hasGlobal = false;
+
   try {
-    await fs.access(claudePath);
-  } catch {
+    await fs.access(localClaudePath);
+    hasLocal = true;
+  } catch {}
+
+  try {
+    await fs.access(globalClaudePath);
+    hasGlobal = true;
+  } catch {}
+
+  if (includeLocal && !hasLocal && !includeGlobal) {
     throw new Error(`No .claude folder found in ${project}`);
   }
 
-  // Scan all components
-  const agents = await scanAgents(claudePath);
-  const skills = await scanSkills(claudePath);
-  const commands = await scanCommands(claudePath);
+  if (includeGlobal && !hasGlobal && !includeLocal) {
+    throw new Error(`No global .claude folder found at ${globalClaudePath}`);
+  }
 
-  // Combine skills and commands
-  const allSkills = [...skills, ...commands];
+  if (!hasLocal && !hasGlobal) {
+    throw new Error(`No .claude folder found (local: ${project}, global: ${globalClaudePath})`);
+  }
+
+  // Scan local components
+  let localAgents: AgentNode[] = [];
+  let localSkills: SkillNode[] = [];
+  let localCommands: CommandNode[] = [];
+
+  if (includeLocal && hasLocal) {
+    localAgents = await scanAgents(localClaudePath, 'local', project);
+    localSkills = await scanSkills(localClaudePath, 'local', project);
+    localCommands = await scanCommands(localClaudePath, 'local', project);
+  }
+
+  // Scan global components
+  let globalAgents: AgentNode[] = [];
+  let globalSkills: SkillNode[] = [];
+  let globalCommands: CommandNode[] = [];
+
+  if (includeGlobal && hasGlobal) {
+    globalAgents = await scanAgents(globalClaudePath, 'global', globalClaudePath);
+    globalSkills = await scanSkills(globalClaudePath, 'global', globalClaudePath);
+    globalCommands = await scanCommands(globalClaudePath, 'global', globalClaudePath);
+  }
+
+  // Merge nodes (local takes precedence for duplicates)
+  const agents = mergeNodes(localAgents, globalAgents);
+  const skills = mergeNodes(localSkills, globalSkills);
+  const commands = mergeNodes(localCommands, globalCommands);
 
   // Find relationships
-  const edges = await findRelationships(agents, allSkills, claudePath);
+  const edges = await findRelationships(agents, skills, commands, localClaudePath);
 
   // Build result
   const result: GraphData = {
-    nodes: [...agents, ...allSkills],
+    nodes: [...agents, ...skills, ...commands],
     edges,
     metadata: {
       generatedAt: new Date().toISOString(),
       projectPath: project,
       projectName: path.basename(project),
-      agentCount: agents.length,
-      skillCount: skills.length,
-      commandCount: commands.length,
-      edgeCount: edges.length
+      agentCount: localAgents.length,
+      skillCount: localSkills.length,
+      commandCount: localCommands.length,
+      edgeCount: edges.length,
+      globalAgentCount: globalAgents.length,
+      globalSkillCount: globalSkills.length,
+      globalCommandCount: globalCommands.length
     }
   };
 

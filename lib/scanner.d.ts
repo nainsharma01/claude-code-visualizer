@@ -6,10 +6,17 @@ interface GraphMetadata {
     skillCount: number;
     commandCount: number;
     edgeCount: number;
+    globalAgentCount: number;
+    globalSkillCount: number;
+    globalCommandCount: number;
+}
+interface ScanOptions {
+    includeLocal?: boolean;
+    includeGlobal?: boolean;
 }
 /**
  * Scan a Claude Code project and generate graph data
  */
-export declare function scanProject(projectPath: string, outputPath: string): Promise<GraphMetadata>;
+export declare function scanProject(projectPath: string, outputPath: string, options?: ScanOptions): Promise<GraphMetadata>;
 export {};
 //# sourceMappingURL=scanner.d.ts.map

@@ -1,3 +1,5 @@
+export type NodeScope = 'local' | 'global';
+
 export interface AgentNode {
   id: string;
   type: 'agent';
@@ -9,6 +11,7 @@ export interface AgentNode {
   skills: string[];
   filePath: string;
   systemPrompt: string;
+  scope: NodeScope;
 }
 
 export interface SkillNode {
@@ -20,9 +23,20 @@ export interface SkillNode {
   filePath: string;
   hasScripts: boolean;
   hasWebapp: boolean;
+  scope: NodeScope;
 }
 
-export type GraphNode = AgentNode | SkillNode;
+export interface CommandNode {
+  id: string;
+  type: 'command';
+  name: string;
+  description: string;
+  argumentHint: string;
+  filePath: string;
+  scope: NodeScope;
+}
+
+export type GraphNode = AgentNode | SkillNode | CommandNode;
 
 export interface GraphEdge {
   source: string;
@@ -36,7 +50,11 @@ export interface GraphMetadata {
   projectName: string;
   agentCount: number;
   skillCount: number;
+  commandCount: number;
   edgeCount: number;
+  globalAgentCount?: number;
+  globalSkillCount?: number;
+  globalCommandCount?: number;
 }
 
 export interface GraphData {
@@ -52,4 +70,8 @@ export function isAgentNode(node: GraphNode): node is AgentNode {
 
 export function isSkillNode(node: GraphNode): node is SkillNode {
   return node.type === 'skill';
+}
+
+export function isCommandNode(node: GraphNode): node is CommandNode {
+  return node.type === 'command';
 }

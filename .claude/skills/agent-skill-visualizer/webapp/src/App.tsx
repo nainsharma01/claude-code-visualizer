@@ -31,7 +31,7 @@ function App() {
   const [edgeUpdateKey, setEdgeUpdateKey] = useState(0); // Force edge recalculation
   const [streamEnabled, setStreamEnabled] = useState(true);
   const [showCallStack, setShowCallStack] = useState(true);
-  const [showCreatorSkills, setShowCreatorSkills] = useState(false);
+  const [showGlobalNodes, setShowGlobalNodes] = useState(true);
   const [isCommandModalOpen, setIsCommandModalOpen] = useState(false);
 
   // Activity stream for real-time visualization
@@ -271,28 +271,33 @@ function App() {
 
   // Handle mouse move
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (dragInfo.current) {
+    // Capture ref values before async state updates
+    const drag = dragInfo.current;
+    const pan = panState.current;
+
+    if (drag) {
       // Prevent division by zero or very small numbers
       const safeScale = Math.max(viewTransform.scale, 0.01);
-      const dx = (e.clientX - dragInfo.current.startMouse.x) / safeScale;
-      const dy = (e.clientY - dragInfo.current.startMouse.y) / safeScale;
+      const dx = (e.clientX - drag.startMouse.x) / safeScale;
+      const dy = (e.clientY - drag.startMouse.y) / safeScale;
+
+      const newX = drag.startPos.x + dx;
+      const newY = drag.startPos.y + dy;
+      const nodeId = drag.nodeId;
 
       setNodePositions(prev => ({
         ...prev,
-        [dragInfo.current!.nodeId]: {
-          x: dragInfo.current!.startPos.x + dx,
-          y: dragInfo.current!.startPos.y + dy,
-        },
+        [nodeId]: { x: newX, y: newY },
       }));
-    } else if (panState.current) {
-      setViewTransform(prev => {
-        const newTransform = {
-          ...prev,
-          x: e.clientX - panState.current!.startX,
-          y: e.clientY - panState.current!.startY,
-        };
-        return sanitizeTransform(newTransform);
-      });
+    } else if (pan) {
+      const newX = e.clientX - pan.startX;
+      const newY = e.clientY - pan.startY;
+
+      setViewTransform(prev => sanitizeTransform({
+        ...prev,
+        x: newX,
+        y: newY,
+      }));
     }
   }, [viewTransform.scale, sanitizeTransform]);
 
@@ -343,16 +348,8 @@ function App() {
       );
     };
 
-    const isCreatorSkill = (node: GraphNode) => {
-      return node.type === 'skill' && (
-        node.name.endsWith('-creator') ||
-        node.name === 'agent-skill-visualizer'
-      );
-    };
-
     const shouldShowNode = (node: GraphNode) => {
-      // Hide creator skills if toggle is off
-      if (!showCreatorSkills && isCreatorSkill(node)) {
+      if (!showGlobalNodes && node.scope === 'global') {
         return false;
       }
       return matchesSearch(node);
@@ -380,7 +377,7 @@ function App() {
       visibleNodes: data.nodes.filter(shouldShowNode),
       highlightedEdges,
     };
-  }, [data, searchTerm, selectedNode, showCreatorSkills]);
+  }, [data, searchTerm, selectedNode, showGlobalNodes]);
 
   if (loading) {
     return (
@@ -442,14 +439,14 @@ function App() {
         {/* Activity Stream Toggle */}
         <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
           <button
-            onClick={() => setShowCreatorSkills(!showCreatorSkills)}
+            onClick={() => setShowGlobalNodes(!showGlobalNodes)}
             className={`px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-              showCreatorSkills ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400'
+              showGlobalNodes ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400'
             }`}
-            title="Creator 스킬 표시/숨기기"
+            title="전역 스킬/에이전트 표시/숨기기"
           >
-            <span className="text-sm">🛠️</span>
-            Creator
+            <span className="text-sm">🌐</span>
+            Global
           </button>
           <button
             onClick={() => setShowCallStack(!showCallStack)}

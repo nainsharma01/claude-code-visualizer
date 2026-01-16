@@ -31,6 +31,8 @@ export async function run() {
     .option('-p, --port <number>', 'Server port (default: 3000)', '3000')
     .option('--no-open', "Don't open browser automatically")
     .option('--no-scan', 'Skip scanning, use existing data')
+    .option('-l, --local', 'Show only local project skills (exclude global)')
+    .option('-g, --global', 'Show only global skills (exclude local project)')
     .option('-v, --verbose', 'Verbose logging')
     .parse(process.argv);
 
@@ -57,20 +59,46 @@ export async function run() {
       console.log(chalk.dim(`Node.js ${nodeVersion} ✓`));
     }
 
+    // Determine scan scope
+    const includeLocal = !options.global;
+    const includeGlobal = !options.local;
+
     // 1. Validate Claude Code project
     if (options.verbose) {
       console.log(chalk.dim('Checking for .claude directory...'));
     }
 
     const isValid = await validateClaudeProject(cwd);
-    if (!isValid) {
+    const home = process.env.HOME || process.env.USERPROFILE || '';
+    const globalClaudePath = `${home}/.claude`;
+
+    // Check if we have at least one valid source
+    let hasGlobal = false;
+    try {
+      const fs = await import('fs/promises');
+      await fs.access(globalClaudePath);
+      hasGlobal = true;
+    } catch {}
+
+    if (!isValid && !hasGlobal) {
       console.error(chalk.red('✗ No .claude directory found'));
       console.error(chalk.yellow('  Run this command from a Claude Code project root'));
       console.error(chalk.yellow('  Or run "claude init" to create a new project'));
       process.exit(1);
     }
 
-    console.log(chalk.green('✓ Claude Code project detected'));
+    if (!isValid && includeLocal && !includeGlobal) {
+      console.error(chalk.red('✗ No local .claude directory found'));
+      console.error(chalk.yellow('  Use --global to view only global skills'));
+      process.exit(1);
+    }
+
+    if (isValid) {
+      console.log(chalk.green('✓ Claude Code project detected'));
+    }
+    if (hasGlobal && includeGlobal) {
+      console.log(chalk.green('✓ Global Claude directory found'));
+    }
 
     // 2. Setup visualizer directory
     const vizDir = path.join(cwd, VISUALIZER_DIR);
@@ -83,11 +111,14 @@ export async function run() {
     const dataPath = path.join(vizDir, DATA_FILE);
     if (options.scan !== false) {
       console.log(chalk.blue('📊 Scanning project structure...'));
-      const stats = await scanProject(cwd, dataPath);
+      const stats = await scanProject(cwd, dataPath, { includeLocal, includeGlobal });
       console.log(chalk.green('✓ Scan complete'));
-      console.log(chalk.dim(`  Agents: ${stats.agentCount}`));
-      console.log(chalk.dim(`  Skills: ${stats.skillCount}`));
-      console.log(chalk.dim(`  Commands: ${stats.commandCount}`));
+      if (includeLocal) {
+        console.log(chalk.dim(`  Local:  Agents: ${stats.agentCount}, Skills: ${stats.skillCount}, Commands: ${stats.commandCount}`));
+      }
+      if (includeGlobal) {
+        console.log(chalk.dim(`  Global: Agents: ${stats.globalAgentCount}, Skills: ${stats.globalSkillCount}, Commands: ${stats.globalCommandCount}`));
+      }
       console.log(chalk.dim(`  Edges: ${stats.edgeCount}`));
     } else {
       console.log(chalk.yellow('⊘ Skipping scan (using existing data)'));
