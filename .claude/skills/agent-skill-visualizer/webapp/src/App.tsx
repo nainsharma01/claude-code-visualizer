@@ -44,6 +44,7 @@ function App() {
     startMouse: { x: number; y: number };
   } | null>(null);
   const panState = useRef<{ startX: number; startY: number } | null>(null);
+  const hasDragged = useRef(false); // Track if actual drag happened
 
   // Auto-layout: hierarchical columns
   // Parent agents (left) → Child agents (middle) → Skills (right)
@@ -197,6 +198,17 @@ function App() {
     }
   }, [nodePositions]);
 
+  // ESC key to deselect node
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedNode) {
+        setSelectedNode(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedNode]);
+
   // Get handle position from DOM element
   const getHandlePosition = useCallback((handleId: string): { x: number; y: number } | null => {
     const handleElem = document.getElementById(handleId);
@@ -251,6 +263,8 @@ function App() {
     if (e.button !== 0) return;
     if (dragInfo.current) return;
 
+    hasDragged.current = false; // Reset drag tracking
+
     panState.current = {
       startX: e.clientX - viewTransform.x,
       startY: e.clientY - viewTransform.y,
@@ -281,6 +295,11 @@ function App() {
       const dx = (e.clientX - drag.startMouse.x) / safeScale;
       const dy = (e.clientY - drag.startMouse.y) / safeScale;
 
+      // Mark as dragged if moved more than 5px
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        hasDragged.current = true;
+      }
+
       const newX = drag.startPos.x + dx;
       const newY = drag.startPos.y + dy;
       const nodeId = drag.nodeId;
@@ -293,13 +312,18 @@ function App() {
       const newX = e.clientX - pan.startX;
       const newY = e.clientY - pan.startY;
 
+      // Mark as dragged if panned
+      if (Math.abs(newX - viewTransform.x) > 5 || Math.abs(newY - viewTransform.y) > 5) {
+        hasDragged.current = true;
+      }
+
       setViewTransform(prev => sanitizeTransform({
         ...prev,
         x: newX,
         y: newY,
       }));
     }
-  }, [viewTransform.scale, sanitizeTransform]);
+  }, [viewTransform.scale, viewTransform.x, viewTransform.y, sanitizeTransform]);
 
   // Handle mouse up
   const handleMouseUp = useCallback(() => {
@@ -490,7 +514,12 @@ function App() {
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
           onWheel={handleWheel}
-          onClick={() => setSelectedNode(null)}
+          onClick={() => {
+            // Only deselect if no drag/pan occurred
+            if (!hasDragged.current) {
+              setSelectedNode(null);
+            }
+          }}
         >
           <div
             style={{
